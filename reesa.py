@@ -14,9 +14,7 @@ reesa_so.genpriv.restype = ctypes.c_void_p
 reesa_so.writepriv.argtypes = [ctypes.c_void_p]
 reesa_so.writepriv.restype = ctypes.c_long
 
-# Create a decorator for the callback that receives private key
-# components
-write_cb_t = ctypes.CFUNCTYPE(ctypes.c_int, *[ctypes.c_char_p]*6)
+MAX_NUMBER_SIZE = ctypes.c_int.in_dll(reesa_so, "MAX_NUMBER_SIZE").value
 
 def gen_key(filename):
     """Generate a key and save it to file
@@ -25,24 +23,24 @@ def gen_key(filename):
     """
     pk = reesa_so.genpriv()
     
-    @write_cb_t
-    def saver(p, q, 
-              private_exponent, public_exponent, 
-              modulus, totient_modulus):
-        try:
-            f = open(filename, "w")
-            json.dump(f, {"p": p, 
-                          "q": q, 
-                          "private_exponent": private_exponent, 
-                          "public_exponent": public_exponent, 
-                          "modulus": modulus, 
-                          "totient_modulus": totient_modulus})
-        finally:
-            f.close()
-        
-        return 1
+    p, q, privexp, pubexp, modulus, totient_modulus = [
+        ctypes.create_string_buffer("", MAX_NUMBER_SIZE) 
+        for i in range(6) 
+    ]
 
-    reesa_so.writepriv(pk, saver)
+    reesa_so.writepriv(pk, p, q, privexp, pubexp, modulus, totient_modulus)
+
+    try:
+        f = open(filename, "w")
+        json.dump(f, {"p": p.value, 
+                      "q": q.value, 
+                      "private_exponent": private_exponent.value, 
+                      "public_exponent": public_exponent.value, 
+                      "modulus": modulus.value, 
+                      "totient_modulus": totient_modulus.value})
+    finally:
+        f.close()
+
 
 class InvalidPrivkey(Exception):
     pass
@@ -82,23 +80,20 @@ def load_key(filename):
     if pk is None:
         raise UnacceptablePrivkey("That private key has invalid values.")
 
-    ret = {"ret": None}
+    p, q, privexp, pubexp, modulus, totient_modulus = [
+        ctypes.create_string_buffer("", MAX_NUMBER_SIZE) for i in range(6)
+    ]
 
-    @write_cb_t
-    def callback(p, q, 
-                 private_exponent, public_exponent, 
-                 modulus, totient_modulus):
-        ret["ret"] = {"p": p, 
-               "q": q, 
-               "private_exponent": private_exponent, 
-               "public_exponent": public_exponent, 
-               "modulus": modulus, 
-               "totient_modulus": totient_modulus}
-        return 1
+    reesa_so.writepriv(pk, p, q, privexp, pubexp, modulus, totient_modulus)
 
-    reesa_so.writepriv(pk, callback)
-
-    return ret["ret"]
+    return {
+        "p": p.value,
+        "q": q.value,
+        "private_exponent": privexp.value,
+        "public_exponent": pubexp.value,
+        "modulus": modulus.value,
+        "totient_modulus": totient_modulus.value
+    }
 
 def encrypt(pubkey, plaintext):
     "Encrypt plaintext using the public/private key given"

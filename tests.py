@@ -3,6 +3,7 @@
 import unittest
 import tempfile
 import json
+import ctypes
 
 import reesa
 
@@ -12,15 +13,21 @@ class TestCLibrary(unittest.TestCase):
 
         privkey = reesa.reesa_so.readpriv(*privkey_values)
 
-        @reesa.write_cb_t
-        def callback(*args):
-            self.assertEqual(args, privkey_values)
-            return 1
-            
-        retval = reesa.reesa_so.writepriv(privkey, callback)
+        p, q, privexp, pubexp, modulus, totient_modulus = [
+            ctypes.create_string_buffer("", reesa.MAX_NUMBER_SIZE) for i in range(6)
+        ]
+
+        retval = reesa.reesa_so.writepriv(privkey, p, q, privexp, pubexp, modulus, totient_modulus)
 
         self.assertEqual(retval, 1)
 
+        self.assertEqual(p.value, "123")
+        self.assertEqual(q.value, "234")
+        self.assertEqual(privexp.value, "345")
+        self.assertEqual(pubexp.value, "456")
+        self.assertEqual(modulus.value, "567")
+        self.assertEqual(totient_modulus.value, "678")
+            
 class TestFileOperations(unittest.TestCase):
     def setUp(self):
         self.valid_fp = tempfile.NamedTemporaryFile()
