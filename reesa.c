@@ -8,6 +8,7 @@
 const mpz_t[] first_primes;
  */
 
+/* Size of largest buffer to communicate numbers with */
 const size_t MAX_NUMBER_SIZE = 4096;
 
 /* The internal private key format uses GMP big integers. */
@@ -28,25 +29,32 @@ struct reesa_pubkey {
   mpz_t modulus;
 } reesa_pub;
 
+/* Seed the random number generator with this static, incrementing
+   number */
+static int random_seed = 0;
+
 struct reesa_privkey* genpriv () {
   /* Allocate a new private key ready-to-use
    */
   struct reesa_privkey* priv = malloc(sizeof(struct reesa_privkey));
-  
-  gmp_randstate_t state;
-  gmp_randinit_default(state);
-  
   mpz_init(priv->q);
   mpz_init(priv->p);
+  mpz_init(priv->modulus);
+  mpz_init(priv->totient_modulus);
+  mpz_init(priv->private_exponent);
+  mpz_init_set_str(priv->public_exponent, "65537", 10);
+  
+  gmp_randstate_t random_state;
+  gmp_randinit_default(random_state);
+  gmp_randseed_ui(random_state, ++random_seed);
 
   void genprime(mpz_t, gmp_randstate_t);
 
-  genprime(priv->q, state);
-  genprime(priv->p, state);
+  genprime(priv->q, random_state);
+  genprime(priv->p, random_state);
 
-  gmp_randclear(state);
+  gmp_randclear(random_state);
 
-  mpz_init(priv->modulus);
   mpz_mul(priv->modulus, priv->p, priv->q);
 
   mpz_t p1;
@@ -58,18 +66,13 @@ struct reesa_privkey* genpriv () {
   mpz_init(q1);
   mpz_sub_ui(q1, priv->q, 1);
 
-  mpz_init(priv->totient_modulus);
   mpz_mul(priv->totient_modulus, p1, q1);
 
   mpz_clear(q1);
   mpz_clear(p1);
-
-  mpz_init_set_str(priv->public_exponent, "65537", 10);
-
   
   int inverse(mpz_t, const mpz_t, const mpz_t);
-  inverse(priv->private_exponent, priv->public_exponent, priv->modulus);
-  /* TODO check for error code */
+  inverse(priv->private_exponent, priv->public_exponent, priv->totient_modulus);
 
   return priv;
 }
@@ -82,12 +85,13 @@ int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
 
   mpz_t t;
   mpz_init_set_ui(t, 0);
-  mpz_t r;  
-  mpz_init_set(r, n);   
   mpz_t newt;
   mpz_init_set_ui(newt, 1);
+  mpz_t r;  
+  mpz_init_set(r, n);   
   mpz_t newr;
   mpz_init_set(newr, a);
+
   mpz_t quotient;
   mpz_init(quotient);
 
@@ -95,9 +99,9 @@ int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
   mpz_init(temp);
   mpz_t swapped;
   mpz_init(swapped);
-
+  
   while (mpz_cmp_ui(newr, 0) != 0) {
-    mpz_cdiv_q(quotient, r, newr);
+    mpz_fdiv_q(quotient, r, newr);
     
     mpz_set(swapped, newt);
     mpz_mul(temp, quotient, newt);
@@ -178,6 +182,7 @@ void gcd(mpz_t rop, const mpz_t cn, const mpz_t cm) {
 }
 
 void totient(mpz_t rop, const mpz_t n) {
+  /* generic totient function */
   mpz_t i;
   mpz_init_set_ui(i, 1);
   mpz_set_ui(rop, 0);

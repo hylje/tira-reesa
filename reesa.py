@@ -22,25 +22,27 @@ def gen_key(filename):
     Not tested since the generation function is not implemented yet.
     """
     pk = reesa_so.genpriv()
-    
-    p, q, privexp, pubexp, modulus, totient_modulus = [
-        ctypes.create_string_buffer("", MAX_NUMBER_SIZE) 
-        for i in range(6) 
-    ]
-
-    reesa_so.writepriv(pk, p, q, privexp, pubexp, modulus, totient_modulus)
-
+            
     try:
         f = open(filename, "w")
-        json.dump(f, {"p": p.value, 
-                      "q": q.value, 
-                      "private_exponent": private_exponent.value, 
-                      "public_exponent": public_exponent.value, 
-                      "modulus": modulus.value, 
-                      "totient_modulus": totient_modulus.value})
+        json.dump(f, dump_privkey(pk))
     finally:
         f.close()
 
+def dump_privkey(privkey):
+    p, q, public_exponent, private_exponent, modulus, totient_modulus = [
+        ctypes.create_string_buffer("", MAX_NUMBER_SIZE) 
+        for i in range(6) 
+    ]
+    
+    reesa_so.writepriv(privkey, p, q, public_exponent, private_exponent, modulus, totient_modulus)
+
+    return {"p": p.value, 
+            "q": q.value, 
+            "private_exponent": private_exponent.value, 
+            "public_exponent": public_exponent.value, 
+            "modulus": modulus.value, 
+            "totient_modulus": totient_modulus.value}
 
 class InvalidPrivkey(Exception):
     pass
