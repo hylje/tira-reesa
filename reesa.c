@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <gmp.h>
+#include <stdio.h>
 
 #include <string.h>
 
@@ -307,18 +308,104 @@ int writepub() {
   return 99;
 }
 
-void encrypt(struct reesa_pubkey* pub, 
-	     const char* plaintext, 
-	     int plaintext_length, 
-	     char* ciphertext) {
-  /* WIP */
+void exp_modulo(mpz_t rop, const mpz_t base, const mpz_t exponent, const mpz_t modulus) {
+  /* fast exp-modulo */
+  mpz_t c;
+  mpz_init_set_ui(c, 1);
+  mpz_t ex;
+  mpz_init_set(ex, exponent);
+  mpz_t b;
+  mpz_init_set(b, base);
+  mpz_t temp;
+  mpz_init(temp);
+
+  while (mpz_cmp_ui(ex, 0) > 0) {
+    /* ex mod 2 == 1 */
+    mpz_fdiv_r_ui(temp, ex, 2);
+    if (mpz_cmp_ui(temp, 1) == 0) {
+      mpz_mul(temp, c, b);
+      mpz_fdiv_r(c, temp, modulus);
+    }
+
+    /* right shift by 1 */
+    mpz_fdiv_q_2exp(ex, ex, 1);
+
+    /* b^2 mod modulus */
+    mpz_mul(b, b, b);
+    mpz_fdiv_r(b, b, modulus);
+  }
+
+  mpz_set(rop, c);
+  
+  mpz_clear(c);
+  mpz_clear(ex);
+  mpz_clear(temp);
+  mpz_clear(b);
 }
 
-void decrypt(struct reesa_privkey* priv,
+int encrypt(struct reesa_privkey* priv, 
+	     const char* plaintext, 
+	     char* ciphertext,
+	     int buflen) {
+  /* 
+     Encrypts the given plaintext (of length buflen) and writes it to
+     ciphertext (length buflen)
+
+     We expect the plaintext to be a base16 number. We'll also write a
+     base16 number into ciphertext.
+
+     XXX We currently only use private keys, substitute for pubkey later
+   */
+  
+  mpz_t plainnum;
+  mpz_init2(plainnum, buflen*8);
+  mpz_set_str(plainnum, plaintext, 16);
+  
+  if(mpz_cmp(plainnum, priv->modulus) > 0) {
+    mpz_clear(plainnum);
+    return 1;
+  }
+
+  mpz_t ciphernum;
+  mpz_init2(ciphernum, buflen*8);
+
+  exp_modulo(ciphernum, plainnum, priv->public_exponent, priv->modulus);
+
+  mpz_get_str(ciphertext, 16, ciphernum);
+
+  mpz_clear(plainnum);
+  mpz_clear(ciphernum);
+
+  return 0;
+}
+
+int decrypt(struct reesa_privkey* priv,
 	     const char* ciphertext,
-	     int ciphertext_length,
-	     char* plaintext) {
-  /* WIP */
+	     char* plaintext,
+	     int buflen) {
+  /* 
+     Decrypts the given ciphertext (of length buflen) and writes it to
+     plaintext (length buflen) 
+
+     We expect the plaintext to be a base16 number. We'll also write a
+     base16 number into ciphertext.
+  */
+
+  mpz_t ciphernum;
+  mpz_init2(ciphernum, buflen*8);
+  mpz_set_str(ciphernum, ciphertext, 16);
+
+  mpz_t plainnum;
+  mpz_init2(plainnum, buflen*8);
+  
+  exp_modulo(plainnum, ciphernum, priv->private_exponent, priv->modulus);
+
+  mpz_get_str(plaintext, 16, plainnum);
+
+  mpz_clear(ciphernum);
+  mpz_clear(plainnum);
+
+  return 0;
 }
 
 void sign(struct reesa_privkey* priv, 
