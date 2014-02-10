@@ -148,22 +148,22 @@ def block_process(function, key, source, target, chunk_read, chunk_write):
 
         for block in blockify(source_f, chunk_read):
             inbuf.value = block.encode("hex")
-            print inbuf.value
             retval = function(key, inbuf, outbuf, chunk_write)
             if retval != 0:
                 raise BlockError(retval)
-            print outbuf.value
             output_length = len(outbuf.value)
             if output_length < chunk_write*2:
                 # deal with leading zeroes
                 buf = "0"*(chunk_write*2-output_length) + outbuf.value
             elif output_length > chunk_write*2:
                 # not enough leeway
+                print outbuf.value
+                print output_length, chunk_write*2
                 raise BlockError("Too small write blocksize!")
             else:
                 buf = outbuf.value
 
-            target_f.write(buf.decode("hex"))
+            target_f.write(buf.decode("hex").rstrip("\x00"))
     finally:
         target_f.close()
         source_f.close()

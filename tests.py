@@ -190,7 +190,6 @@ class TestFileOperations(unittest.TestCase):
         self.assertRaises(reesa.NotJSONPrivkey, closure)
 
 class TestUserInterface(unittest.TestCase):
-    
     def test_big_crypt_roundtrip(self):
         """Test encrypting and decrypting the tests.py file"""
     
@@ -198,29 +197,28 @@ class TestUserInterface(unittest.TestCase):
         crypt_file = tempfile.NamedTemporaryFile()
         plain_file = tempfile.NamedTemporaryFile()
 
-        reesa.gen_key(keyfile.filename)
+        reesa.gen_key(keyfile.name)
 
-        reesa.encrypt(keyfile.filename, __file__, target_file.filename)
+        reesa.encrypt(keyfile.name, "testfile.txt", crypt_file.name)
         
-        reesa.decrypt(keyfile.filename, target_file.filename, plain_file.filename)
+        reesa.decrypt(keyfile.name, crypt_file.name, plain_file.name)
 
         plain_file.seek(0)
         plain_file_contents = plain_file.read()
         
         try:
-            this_file = open(__file__)
+            this_file = open("testfile.txt")
             this_file_contents = this_file.read()
         finally:
             this_file.close()
 
         this_len = len(this_file_contents)
-        self.assertEqual(this_len, len(plain_file_contents))        
+
+        self.assertEqual(this_len, len(plain_file_contents))
         offset = 32
     
         for index in range(0, this_len, offset):
             self.assertEqual(this_file_contents[index:index+offset],
                              plain_file_contents[index:index+offset])
-        
-
 
         

@@ -1,0 +1,4 @@
+Hello world!
+
+This is a text file just long enough to require processing in multiple
+blocks.
