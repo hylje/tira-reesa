@@ -9,7 +9,7 @@ from decimal import Decimal, localcontext
 import reesa
 
 class TestCLibrary(unittest.TestCase):
-    def test_roundtrip(self):
+    def test_key_roundtrip(self):
         privkey_values = ("123", "234", "345", "456", "567", "678")
 
         privkey = reesa.reesa_so.readpriv(*privkey_values)
@@ -59,7 +59,11 @@ class TestCLibrary(unittest.TestCase):
                 inverse(Decimal(pubexp.value), 
                         Decimal(totient_modulus.value)))
 
-    def test_generator_randomness(self):
+    def test_sequential_randomness(self):
+        """Make a very simple test that two generated keys are not exactly the
+        same
+        """
+
         priv1 = reesa.reesa_so.genpriv()
         priv2 = reesa.reesa_so.genpriv()
         
@@ -68,7 +72,46 @@ class TestCLibrary(unittest.TestCase):
         
         for key in ["p", "q"]:
             self.assertNotEqual(dat1[key], dat2[key], msg="Key: %s, %s == %s" % (key, dat1[key], dat2[key]))
-                                 
+
+    def test_simple_encrypt(self):
+        """Use the very small values given in the Wikipedia example to test
+        encrypt
+        """
+        priv1 = reesa.reesa_so.readpriv("61", "53", "17", "2753", "3233", "3120") 
+        
+        hexlen = 65
+        
+        inbuf = ctypes.create_string_buffer("", hexlen)
+        outbuf = ctypes.create_string_buffer("", hexlen)
+        
+        inbuf.value = hex(65)[2:]
+
+        reesa.reesa_so.encrypt(priv1, inbuf, outbuf, hexlen)
+
+        val = int(outbuf.value, 16)
+
+        self.assertEqual(val, 2790)
+
+    def test_simple_decrypt(self):
+        """Use the very small values given in the Wikipedia example to test
+        decrypt
+        """
+        priv1 = reesa.reesa_so.readpriv("61", "53", "17", "2753", "3233", "3120") 
+        
+        hexlen = 65
+        
+        inbuf = ctypes.create_string_buffer("", hexlen)
+        outbuf = ctypes.create_string_buffer("", hexlen)
+        
+        inbuf.value = hex(2790)[2:]
+
+        reesa.reesa_so.decrypt(priv1, inbuf, outbuf, hexlen)
+
+        val = int(outbuf.value, 16)
+
+        self.assertEqual(val, 65)
+
+
 def inverse(a, n): 
     t, newt = 0, 1
     r, newr = n, a
@@ -145,3 +188,39 @@ class TestFileOperations(unittest.TestCase):
             reesa.load_key(self.invalid_json_filename)
         
         self.assertRaises(reesa.NotJSONPrivkey, closure)
+
+class TestUserInterface(unittest.TestCase):
+    
+    def test_big_crypt_roundtrip(self):
+        """Test encrypting and decrypting the tests.py file"""
+    
+        keyfile = tempfile.NamedTemporaryFile()
+        crypt_file = tempfile.NamedTemporaryFile()
+        plain_file = tempfile.NamedTemporaryFile()
+
+        reesa.gen_key(keyfile.filename)
+
+        reesa.encrypt(keyfile.filename, __file__, target_file.filename)
+        
+        reesa.decrypt(keyfile.filename, target_file.filename, plain_file.filename)
+
+        plain_file.seek(0)
+        plain_file_contents = plain_file.read()
+        
+        try:
+            this_file = open(__file__)
+            this_file_contents = this_file.read()
+        finally:
+            this_file.close()
+
+        this_len = len(this_file_contents)
+        self.assertEqual(this_len, len(plain_file_contents))        
+        offset = 32
+    
+        for index in range(0, this_len, offset):
+            self.assertEqual(this_file_contents[index:index+offset],
+                             plain_file_contents[index:index+offset])
+        
+
+
+        
