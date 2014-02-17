@@ -3,6 +3,7 @@ library for generating keypairs, encryption and decryption using a RSA
 scheme.
 """
 
+import struct
 import ctypes
 import json
 
@@ -26,7 +27,7 @@ def gen_key(filename):
     """Generate a key and save it to file
     """
     pk = reesa_so.genpriv()
-            
+
     try:
         f = open(filename, "w")
         json.dump(dump_privkey(pk), f)
@@ -35,17 +36,17 @@ def gen_key(filename):
 
 def dump_privkey(privkey):
     p, q, public_exponent, private_exponent, modulus, totient_modulus = [
-        ctypes.create_string_buffer("", MAX_NUMBER_SIZE) 
-        for i in range(6) 
+        ctypes.create_string_buffer("", MAX_NUMBER_SIZE)
+        for i in range(6)
     ]
-    
+
     reesa_so.writepriv(privkey, p, q, public_exponent, private_exponent, modulus, totient_modulus)
 
-    return {"p": p.value, 
-            "q": q.value, 
-            "private_exponent": private_exponent.value, 
-            "public_exponent": public_exponent.value, 
-            "modulus": modulus.value, 
+    return {"p": p.value,
+            "q": q.value,
+            "private_exponent": private_exponent.value,
+            "public_exponent": public_exponent.value,
+            "modulus": modulus.value,
             "totient_modulus": totient_modulus.value}
 
 class InvalidPrivkey(Exception):
@@ -75,7 +76,7 @@ def get_key(filename):
         raise NotJSONPrivkey("That private key is not valid JSON")
     finally:
         f.close()
-    
+
     # TODO: separate loading procedure for pubkeys
 
     try:
@@ -94,7 +95,7 @@ def get_key(filename):
 
     return priv, pub
 
-def load_key(filename): 
+def load_key(filename):
     """Load the key as priv/pubkey depending on its content, validate it
     and and show information about it
 
@@ -107,63 +108,93 @@ def load_key(filename):
         # TODO
         return dump_pubkey(pubkey)
 
-def blockify(source, chunk_size):
+def blockify(source, chunk_size, pad):
     """Splits a file stream into standard-sized blocks, padding if
     necessary
     """
     chunk = source.read(chunk_size)
     while chunk:
-        if len(chunk) < chunk_size:
-            chunk += "\x00" * (chunk_size - len(chunk))
+        if pad:
+            chunk = pad(chunk, chunk_size)
         yield chunk
         chunk = source.read(chunk_size)
 
-def pad(chunk):
-    pass
+def simple_pad(chunk, chunk_size):
+    """Incredibly simple padding scheme that merely records the actual
+    length of the payload chunk.
+    """
 
-def unpad(chunk):
-    pass
+    if len(chunk) < chunk_size:
+        return (struct.pack("B", len(chunk))
+                + chunk
+                + "\x00" * (chunk_size - len(chunk)))
+    else:
+        return struct.pack("B", chunk_size) + chunk
+
+def simple_unpad(chunk, chunk_size):
+    """Reverses the padding scheme, returning the payload truncated to its
+    original length.
+    """
+
+    chunklen = struct.unpack("B", chunk[0])
+
+    if chunklen < chunk_size:
+        return chunk[1:chunklen+1]
+    else:
+        return chunk[1:]
 
 class BlockError(Exception):
     "Something went wrong with the block processing"
 
-CHUNK_SIZE_PLAIN = 16
+CHUNK_SIZE_PLAIN = 15
+CHUNK_SIZE_PADDED = 16
 CHUNK_SIZE_CIPHER = 32
 
-def block_process(function, key, source, target, chunk_read, chunk_write):
+def block_process(function, key,
+                  source, target,
+                  chunk_read, chunk_write,
+                  inbuf, outbuf,
+                  chunk_write_padded=None,
+                  pad=None, unpad=None):
     """Processes the `source` filename with `function` blockwise and writes the
     result into `target` filename.
-    """ 
-
-    chunk_read_hex = chunk_read*2+1
-    chunk_write_hex = chunk_write*2+1
-
-    inbuf = ctypes.create_string_buffer("", chunk_read_hex)
-    outbuf = ctypes.create_string_buffer("", chunk_write_hex)
+    """
+    if not chunk_write_padded:
+        chunk_write_padded = chunk_write
 
     try:
         # XXX doesn't check if files exist
         target_f = open(target, "wb")
         source_f = open(source, "rb")
 
-        for block in blockify(source_f, chunk_read):
+        for block in blockify(source_f, chunk_read, pad=pad):
             inbuf.value = block.encode("hex")
+
             retval = function(key, inbuf, outbuf, chunk_write)
             if retval != 0:
                 raise BlockError(retval)
             output_length = len(outbuf.value)
-            if output_length < chunk_write*2:
+            if output_length < chunk_write_padded*2:
                 # deal with leading zeroes
-                buf = "0"*(chunk_write*2-output_length) + outbuf.value
-            elif output_length > chunk_write*2:
+                buf = "0"*(chunk_write_padded-output_length) + outbuf.value
+            elif output_length > chunk_write_padded*2:
                 # not enough leeway
-                print outbuf.value
-                print output_length, chunk_write*2
                 raise BlockError("Too small write blocksize!")
             else:
                 buf = outbuf.value
 
-            target_f.write(buf.decode("hex").rstrip("\x00"))
+            if len(buf) % 2 == 1:
+                buf = "0" + buf
+
+            writing = buf.decode("hex")
+
+            if len(writing) < chunk_write:
+                writing = "\x00" * (chunk_write - len(writing)) + writing
+
+            if unpad is not None:
+                writing = unpad(writing, chunk_write)
+
+            target_f.write(writing)
     finally:
         target_f.close()
         source_f.close()
@@ -174,10 +205,19 @@ def encrypt(pubkey, plaintext, ciphertext):
     "Encrypt plaintext using the public/private key given"
     priv, pub = get_key(pubkey)
 
+    chunk_read_hex = CHUNK_SIZE_PADDED*2+1
+    chunk_write_hex = CHUNK_SIZE_CIPHER*2+1
+
+    inbuf = ctypes.create_string_buffer("", chunk_read_hex)
+    outbuf = ctypes.create_string_buffer("", chunk_write_hex)
+
     return block_process(
         reesa_so.encrypt, pub, plaintext, ciphertext,
         chunk_read=CHUNK_SIZE_PLAIN,
-        chunk_write=CHUNK_SIZE_CIPHER
+        chunk_write=CHUNK_SIZE_CIPHER,
+        inbuf=inbuf,
+        outbuf=outbuf,
+        pad=simple_pad
     )
 
 
@@ -187,7 +227,13 @@ class PrivkeyNeeded(Exception):
 def decrypt(privkey, ciphertext, plaintext):
     "Decrypt ciphertext using the private key given"
     priv, pub = get_key(privkey)
-    
+
+    chunk_read_hex = CHUNK_SIZE_CIPHER*2+1
+    chunk_write_hex = CHUNK_SIZE_PLAIN*2+1
+
+    inbuf = ctypes.create_string_buffer("", chunk_read_hex)
+    outbuf = ctypes.create_string_buffer("", chunk_write_hex)
+
     if not priv:
         raise PrivkeyNeeded("That key cannot be used to decrypt")
 
@@ -195,6 +241,10 @@ def decrypt(privkey, ciphertext, plaintext):
         reesa_so.decrypt, priv, ciphertext, plaintext,
         chunk_read=CHUNK_SIZE_CIPHER,
         chunk_write=CHUNK_SIZE_PLAIN,
+        chunk_write_padded=CHUNK_SIZE_PADDED,
+        inbuf=inbuf,
+        outbuf=outbuf,
+        unpad=simple_unpad
     )
 
 ACTIONS = {

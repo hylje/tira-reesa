@@ -23,7 +23,7 @@ struct reesa_privkey {
 } reesa_priv;
 
 /* The internal public key format is a subset of the private key's
-   fields. 
+   fields.
 */
 struct reesa_pubkey {
   mpz_t public_exponent;
@@ -44,7 +44,7 @@ struct reesa_privkey* genpriv () {
   mpz_init(priv->totient_modulus);
   mpz_init(priv->private_exponent);
   mpz_init_set_str(priv->public_exponent, "65537", 10);
-  
+
   gmp_randstate_t random_state;
   gmp_randinit_default(random_state);
   gmp_randseed_ui(random_state, ++random_seed);
@@ -60,7 +60,7 @@ struct reesa_privkey* genpriv () {
 
   mpz_t p1;
   mpz_init(p1);
-  
+
   mpz_sub_ui(p1, priv->p, 1);
 
   mpz_t q1;
@@ -71,7 +71,7 @@ struct reesa_privkey* genpriv () {
 
   mpz_clear(q1);
   mpz_clear(p1);
-  
+
   int inverse(mpz_t, const mpz_t, const mpz_t);
   inverse(priv->private_exponent, priv->public_exponent, priv->totient_modulus);
 
@@ -79,7 +79,7 @@ struct reesa_privkey* genpriv () {
 }
 
 int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
-  /* Calculate the multiplicative inverse of a mod n 
+  /* Calculate the multiplicative inverse of a mod n
 
      Used to generate the private key
    */
@@ -88,8 +88,8 @@ int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
   mpz_init_set_ui(t, 0);
   mpz_t newt;
   mpz_init_set_ui(newt, 1);
-  mpz_t r;  
-  mpz_init_set(r, n);   
+  mpz_t r;
+  mpz_init_set(r, n);
   mpz_t newr;
   mpz_init_set(newr, a);
 
@@ -100,15 +100,15 @@ int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
   mpz_init(temp);
   mpz_t swapped;
   mpz_init(swapped);
-  
+
   while (mpz_cmp_ui(newr, 0) != 0) {
     mpz_fdiv_q(quotient, r, newr);
-    
+
     mpz_set(swapped, newt);
     mpz_mul(temp, quotient, newt);
     mpz_sub(newt, t, temp);
     mpz_set(t, swapped);
-    
+
     mpz_set(swapped, newr);
     mpz_mul(temp, quotient, newr);
     mpz_sub(newr, r, temp);
@@ -123,7 +123,7 @@ int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
     mpz_add(temp, t, n);
     mpz_set(t, temp);
   }
-  
+
   mpz_set(rop, t);
 
   mpz_clear(r);
@@ -138,77 +138,23 @@ int inverse(mpz_t rop, const mpz_t a, const mpz_t n) {
 }
 
 void genprime(mpz_t rop, gmp_randstate_t state) {
-  /* Generate a random number using GMP facilities 
-     
+  /* Generate a random number using GMP facilities
+
      Validate the random number as a likely prime using GMP facilities
      (TODO: reimplement primality checking)
    */
   do {
     mpz_urandomb(rop, state, 128);
-  } 
+  }
   while (mpz_probab_prime_p(rop, 25) == 0);
 }
 
-
-void gcd(mpz_t rop, const mpz_t cn, const mpz_t cm) {
-  /* GMP has a GCD function defined, but we'll implement it again */
-  int compare = mpz_cmp(cn, cm);
-  if (compare == 0) {
-    mpz_set(rop, cn);
-    return;
-  }
-
-  mpz_t n;
-  mpz_init_set(n, cn);
-
-  mpz_t m;
-  mpz_init_set(m, cm);
-
-  mpz_t remainder;
-  mpz_init(remainder);
-  
-  for (;;) {
-    mpz_cdiv_r(remainder, n, m);
-    
-    if (mpz_cmp_ui(remainder, 0)) {
-      mpz_clear(remainder);
-      mpz_clear(n);
-      mpz_set(rop, m);
-      return;
-    }
-    
-    mpz_set(n, m);
-    mpz_set(m, remainder);
-  }
-}
-
-void totient(mpz_t rop, const mpz_t n) {
-  /* generic totient function */
-  mpz_t i;
-  mpz_init_set_ui(i, 1);
-  mpz_set_ui(rop, 0);
-  mpz_t gcd_temp;
-  mpz_init(gcd_temp);
-
-  while (mpz_cmp(i, n) < 0) {
-    gcd(gcd_temp, i, n);
-
-    if (mpz_cmp_ui(gcd_temp, 1)) {
-      mpz_add_ui(rop, rop, 1);
-    }
-
-    mpz_add_ui(i, i, 1);
-  }
-  mpz_clear(gcd_temp);
-  mpz_clear(i);
-}
-
 struct reesa_privkey* readpriv(
-	     char* p, 
-	     char* q, 
-	     char* public_exponent, 
-	     char* private_exponent, 
-	     char* modulus, 
+	     char* p,
+	     char* q,
+	     char* public_exponent,
+	     char* private_exponent,
+	     char* modulus,
 	     char* totient_modulus) {
   /* Read the given integers (as strings) into the internal GMP data
      structure.
@@ -225,7 +171,7 @@ struct reesa_privkey* readpriv(
 
   mpz_init(priv->p);
   fail |= mpz_set_str(priv->p, p, 10) == -1;
-  
+
   mpz_init(priv->q);
   fail |= mpz_set_str(priv->q, q, 10) == -1;
 
@@ -249,12 +195,12 @@ struct reesa_privkey* readpriv(
   return priv;
 }
 
-int writepriv(struct reesa_privkey* priv, 
-	      char* p, 
-	      char* q, 
-	      char* public_exponent, 
-	      char* private_exponent, 
-	      char* modulus, 
+int writepriv(struct reesa_privkey* priv,
+	      char* p,
+	      char* q,
+	      char* public_exponent,
+	      char* private_exponent,
+	      char* modulus,
 	      char* totient_modulus) {
   /* Write back our internal data structure into the given
      buffers.
@@ -290,21 +236,21 @@ int writepriv(struct reesa_privkey* priv,
 struct reesa_pubkey* priv2pub (struct reesa_privkey* priv) {
   /* Strip privates, returning just the public key */
   struct reesa_pubkey* pub = malloc(sizeof(struct reesa_pubkey));
-  
+
   mpz_init(pub->public_exponent);
   mpz_set(pub->public_exponent, priv->public_exponent);
   mpz_init(pub->modulus);
   mpz_set(pub->modulus, priv->modulus);
-  
+
   return pub;
 }
 
-int readpub() { 
-  /* WIP */ 
+int readpub() {
+  /* WIP */
   return 99;
 }
-int writepub() { 
-  /* WIP */ 
+int writepub() {
+  /* WIP */
   return 99;
 }
 
@@ -336,31 +282,32 @@ void exp_modulo(mpz_t rop, const mpz_t base, const mpz_t exponent, const mpz_t m
   }
 
   mpz_set(rop, c);
-  
+
   mpz_clear(c);
   mpz_clear(ex);
   mpz_clear(temp);
   mpz_clear(b);
 }
 
-int encrypt(struct reesa_privkey* priv, 
-	     const char* plaintext, 
+int encrypt(struct reesa_privkey* priv,
+	     const char* plaintext,
 	     char* ciphertext,
 	     int buflen) {
-  /* 
+  /*
      Encrypts the given plaintext (of length buflen) and writes it to
      ciphertext (length buflen)
 
      We expect the plaintext to be a base16 number. We'll also write a
      base16 number into ciphertext.
 
-     XXX We currently only use private keys, substitute for pubkey later
+     Buflen should be enough to contain the key modulus encoded in
+     base16. With 128 bit q and p that should be at least 129/4 => 33
    */
-  
+
   mpz_t plainnum;
   mpz_init2(plainnum, buflen*8);
   mpz_set_str(plainnum, plaintext, 16);
-  
+
   if(mpz_cmp(plainnum, priv->modulus) > 0) {
     mpz_clear(plainnum);
     return 1;
@@ -370,6 +317,10 @@ int encrypt(struct reesa_privkey* priv,
   mpz_init2(ciphernum, buflen*8);
 
   exp_modulo(ciphernum, plainnum, priv->public_exponent, priv->modulus);
+
+  if(mpz_cmp(ciphernum, priv->modulus) > 0) {
+    return 2;
+  }
 
   mpz_get_str(ciphertext, 16, ciphernum);
 
@@ -383,9 +334,9 @@ int decrypt(struct reesa_privkey* priv,
 	     const char* ciphertext,
 	     char* plaintext,
 	     int buflen) {
-  /* 
+  /*
      Decrypts the given ciphertext (of length buflen) and writes it to
-     plaintext (length buflen) 
+     plaintext (length buflen)
 
      We expect the plaintext to be a base16 number. We'll also write a
      base16 number into ciphertext.
@@ -395,10 +346,19 @@ int decrypt(struct reesa_privkey* priv,
   mpz_init2(ciphernum, buflen*8);
   mpz_set_str(ciphernum, ciphertext, 16);
 
+  if(mpz_cmp(ciphernum, priv->modulus) > 0) {
+    mpz_clear(ciphernum);
+    return 1;
+  }
+
   mpz_t plainnum;
   mpz_init2(plainnum, buflen*8);
-  
+
   exp_modulo(plainnum, ciphernum, priv->private_exponent, priv->modulus);
+
+  if(mpz_cmp(plainnum, priv->modulus) > 0) {
+    return 2;
+  }
 
   mpz_get_str(plaintext, 16, plainnum);
 
@@ -408,7 +368,7 @@ int decrypt(struct reesa_privkey* priv,
   return 0;
 }
 
-void sign(struct reesa_privkey* priv, 
+void sign(struct reesa_privkey* priv,
 	  const char* text,
 	  int text_length,
 	  char* signature) {

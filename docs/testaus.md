@@ -18,8 +18,8 @@ virhetilanteita, joita tiedetään voivan syntyä. Kaikkia mielivaltaisia
 vikatilanteita ei testata, esimerkiksi C-rutiineissa odotetaan ettei
 niihin syötetä alustamattomia arvoja.
 
-Integraatiotestit 
---- 
+Integraatiotestit
+---
 
 Kokonaisia käyttäjälle tarjottavia kokonaisuuksia testataan
 integraatiotesteillä. Koska ohjelman ydintoiminnot ovat datan
@@ -40,3 +40,8 @@ ennen varsinaisen toiminnon loppuun kehittämistä.
 
 Automaattitesteillä varmistetaan siis, että vanhat ominaisuudet eivät
 mene pahasti rikki uusia kehittäessä.
+
+Eräs mainittavan arvoinen testitulos oli kun syötin salausalgoritmille
+hankalan syötteen: testaustiedoston itse. Tällä testillä paljastui
+vakava puute algoritmissa, joka pakotti minut toteuttamaan
+minimaalisen padding-menetelmän.
