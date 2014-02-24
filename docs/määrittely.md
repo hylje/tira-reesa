@@ -1,5 +1,9 @@
-Minkä ongelman ratkaiset ja millä tietorakenteella tai algoritmilla
+
+Määrittely
 ===
+
+Minkä ongelman ratkaiset ja millä tietorakenteella tai algoritmilla
+---
 
 Ratkaisen yksityisen viestinnän ongelmat lohkosalauksella.
 
@@ -9,7 +13,7 @@ algoritmeja kuten Erastoteneen seula ja Eulerin Φ-funktio.
 Maininnan arvoisia tietorakenteita ei sisälly toteutukseen.
 
 Miten tehokkaasti toteutuksesi tulee ongelman ratkaisemaan (aika- ja tilavaativuudet)
-===
+---
 
 Salauksen ja purun tavoitetehokkuus on aikavaativuudeltaan O(e) jossa
 e=salausavaimen kyseinen eksponentti. Salauksessa ja purussa käytetään
@@ -21,7 +25,7 @@ Salausavaimen generoinnissa tavoitetehokkuuteen päädytään seuraavasti:
 Satunnaisluvut
 ---
 
-n kappaletta noin 256-bittisiä satunnaisia kokonaislukuja: 
+n kappaletta noin 256-bittisiä satunnaisia kokonaislukuja:
 
 ### Aika
 
@@ -29,7 +33,7 @@ n * O(256) => O(n)
 
 ### Tila
 
-O(1) 
+O(1)
 
 Satunnaislukuja generoidaan vain yksi kerrallaan, koska niitä tarvitaan
 yhtäaikaa korkeintaan 2
@@ -37,7 +41,7 @@ yhtäaikaa korkeintaan 2
 Alkulukujen valitseminen
 ---
 
-joista valitaan 2 kappaletta, p ja q, kohtuullisen todennäköisiä alkulukuja: 
+joista valitaan 2 kappaletta, p ja q, kohtuullisen todennäköisiä alkulukuja:
 
 ### Aika
 
@@ -58,7 +62,7 @@ O(m log m) jossa m=p*q, m>>p
 (Tästä on tehokkaampiakin ratkaisuja, mutta tämä on yksinkertainen)
 
 ### Tila
- 
+
 O(1)
 
 Julkinen ja salainen eksponentti
@@ -67,9 +71,9 @@ Julkinen ja salainen eksponentti
 ### Aika
 
 O(n log n) jossa
-n < Φ(p*q) 
+n < Φ(p*q)
 => n < p*q
-=> n < m 
+=> n < m
 => n log n < m log m
 
 ### Tila

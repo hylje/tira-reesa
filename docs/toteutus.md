@@ -1,3 +1,4 @@
+
 Toteutus
 ===
 
@@ -12,6 +13,23 @@ mitä määrittelyssä on annettu:
   eksponentiointifunktio on tehostettu O(log e)-tehokkuusluokkaan,
   koska O(e) olisi ollut sietämättömän hidas ohjelmassa käytetyillä
   sinänsä pienikokoisilla 128-bittisillä avaimilla.
+
+Eksponentoinnin tehokkuus pseudokoodina (neliöintimenetelmä):
+
+    def mod_pow(base, exp, modulus):
+        result = 1
+        base = base mod modulus
+
+        while exp > 0:
+            if exp mod 2 == 1:
+	        result = (result*base) mod modulus
+	    exp = exp >> 1 # exp = exp / 2
+	    base = (base*base) mod modulus
+
+        return result
+
+exp:stä häviää yksi bitti joka silmukassa, joten silmukkaa ajetaan
+`ceil(log_2 exp)` kertaa.
 
 Puutteita
 ---
