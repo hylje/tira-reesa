@@ -5,11 +5,14 @@ scheme.
 
 import struct
 import ctypes
+import ctypes.util
 import json
 
 # Set up the underlying C library
+gmplib = ctypes.util.find_library("gmp")
+gmp = ctypes.CDLL(gmplib, mode=ctypes.RTLD_GLOBAL)
 
-reesa_so = ctypes.CDLL("_reesa.so")
+reesa_so = ctypes.CDLL("./_reesa.so")
 reesa_so.readpriv.argtypes = [ctypes.c_char_p]*6
 reesa_so.readpriv.restype = ctypes.c_void_p
 reesa_so.genpriv.restype = ctypes.c_void_p
